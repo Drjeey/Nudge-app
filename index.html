@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nudge | Intuitive Memory</title>
+    <link rel="manifest" href="manifest.json">
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #40E0D0;
+            --bg: #f8fafb;
+            --text: #34495e;
+            --soft: #95a5a6;
+            --card: #ffffff;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Quicksand', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; height: 100vh; overflow: hidden; }
+        #app { width: 100%; max-width: 450px; padding: 20px; display: flex; flex-direction: column; }
+
+        .screen { display: none; animation: slideIn 0.3s ease-out; flex-direction: column; height: 100%; }
+        .active { display: flex; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Branding */
+        .logo-box { text-align: center; margin: 15px 0; }
+        .logo-img { width: 85px; height: 85px; border-radius: 22px; }
+        .wiggle { animation: nudge-wiggle 0.6s ease; }
+        @keyframes nudge-wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 75% { transform: rotate(8deg); } }
+
+        /* Nudge Card */
+        .nudge-card { background: var(--card); padding: 30px; border-radius: 35px; box-shadow: 0 10px 40px rgba(0,0,0,0.03); text-align: center; margin-bottom: 20px; }
+        .tag { color: var(--primary); font-size: 0.7rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; display: block; }
+        h2 { font-size: 1.4rem; line-height: 1.3; margin: 0 0 25px 0; }
+
+        /* Input Styles */
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        input, textarea { 
+            width: 100%; padding: 18px; border-radius: 18px; border: 2px solid #eaeeef; 
+            font-size: 1rem; outline: none; font-family: inherit;
+        }
+        input:focus { border-color: var(--primary); }
+        .time-row { display: flex; gap: 10px; align-items: center; }
+
+        /* Buttons */
+        .btn-stack { display: flex; flex-direction: column; gap: 10px; }
+        button { border: none; padding: 18px; border-radius: 20px; font-family: inherit; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-add { background: var(--primary); color: white; }
+        .btn-skip { background: #f0f3f3; color: var(--soft); }
+        .btn-voice { background: #ffeaa7; color: #d35400; font-size: 0.9rem; }
+
+        /* Captured List */
+        .schedule-list { flex-grow: 1; overflow-y: auto; padding: 10px 0; }
+        .echo-item { 
+            background: white; padding: 15px; border-radius: 20px; margin-bottom: 10px; 
+            border-left: 5px solid var(--primary); display: flex; flex-direction: column; gap: 5px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+        }
+        .echo-header { display: flex; justify-content: space-between; align-items: center; }
+        .echo-time { font-size: 0.75rem; background: #e0fbf9; color: var(--primary); padding: 4px 10px; border-radius: 10px; }
+        .echo-note { font-size: 0.85rem; color: var(--soft); font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="setup-screen" class="screen active">
+        <div class="logo-box"><img src="assets/logo.png" class="logo-img"></div>
+        <h1 style="text-align:center;">Set Your Anchors</h1>
+        <div id="anchor-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:20px 0;">
+            <div style="padding:15px; border:2px solid #eee; border-radius:15px; text-align:center; cursor:pointer;" onclick="this.classList.toggle('active-chip')">Work</div>
+            <div style="padding:15px; border:2px solid #eee; border-radius:15px; text-align:center; cursor:pointer;" onclick="this.classList.toggle('active-chip')">Health</div>
+            <div style="padding:15px; border:2px solid #eee; border-radius:15px; text-align:center; cursor:pointer;" onclick="this.classList.toggle('active-chip')">Money</div>
+            <div style="padding:15px; border:2px solid #eee; border-radius:15px; text-align:center; cursor:pointer;" onclick="this.classList.toggle('active-chip')">Social</div>
+        </div>
+        <style>.active-chip { border-color: var(--primary) !important; background: #e0fbf9; color: var(--primary); font-weight:600; }</style>
+        <button class="btn-add" onclick="completeSetup()">Start Nudging</button>
+    </div>
+
+    <div id="nudge-screen" class="screen">
+        <div class="logo-box"><img src="assets/logo.png" id="nudge-logo" class="logo-img"></div>
+        <div class="nudge-card">
+            <span class="tag" id="anchor-tag">WORK</span>
+            <h2 id="nudge-text">Anything planned for Work today?</h2>
+            <div class="btn-stack">
+                <button class="btn-add" onclick="openInput()">➕ Capture Thought</button>
+                <button class="btn-skip" onclick="cycleNudge()">⏭ Next Category</button>
+            </div>
+        </div>
+        <div class="schedule-list" id="echo-list"></div>
+    </div>
+
+    <div id="input-screen" class="screen">
+        <h1 id="input-header" style="margin-bottom:10px;">New Plan</h1>
+        <div class="input-group">
+            <input type="text" id="thought-input" placeholder="What's the thought?">
+            <textarea id="note-input" placeholder="Add a note/detail (optional)" rows="2"></textarea>
+            <div class="time-row">
+                <span style="font-size:0.9rem; font-weight:600;">Time:</span>
+                <input type="time" id="time-input" style="padding:10px;">
+            </div>
+        </div>
+        <div class="btn-stack">
+            <button class="btn-add" onclick="saveThought()">Save to My Day</button>
+            <button class="btn-voice" onclick="startVoice()">🎤 Voice Memo</button>
+            <button class="btn-skip" onclick="closeInput()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let state = {
+        anchors: JSON.parse(localStorage.getItem('nudge_anchors')) || [],
+        thoughts: JSON.parse(localStorage.getItem('nudge_thoughts')) || [],
+        idx: 0
+    };
+
+    function show(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'nudge-screen') renderList();
+    }
+
+    function completeSetup() {
+        const selected = Array.from(document.querySelectorAll('.active-chip')).map(c => c.innerText);
+        if(selected.length < 1) return alert("Pick an anchor.");
+        state.anchors = selected;
+        localStorage.setItem('nudge_anchors', JSON.stringify(selected));
+        localStorage.setItem('nudge_setup', 'true');
+        show('nudge-screen');
+        cycleNudge();
+    }
+
+    function cycleNudge() {
+        state.idx = (state.idx + 1) % state.anchors.length;
+        document.getElementById('anchor-tag').innerText = state.anchors[state.idx];
+        document.getElementById('nudge-text').innerText = `Anything planned for ${state.anchors[state.idx]} today?`;
+        
+        const logo = document.getElementById('nudge-logo');
+        logo.classList.remove('wiggle');
+        void logo.offsetWidth; 
+        logo.classList.add('wiggle');
+    }
+
+    function openInput() { show('input-screen'); }
+    function closeInput() { show('nudge-screen'); }
+
+    function saveThought(speech) {
+        const thought = speech || document.getElementById('thought-input').value;
+        if(!thought) return;
+        
+        const newEntry = {
+            id: Date.now(),
+            anchor: state.anchors[state.idx],
+            thought: thought,
+            note: document.getElementById('note-input').value,
+            time: document.getElementById('time-input').value
+        };
+
+        state.thoughts.push(newEntry);
+        localStorage.setItem('nudge_thoughts', JSON.stringify(state.thoughts));
+        
+        // Clear inputs
+        document.getElementById('thought-input').value = "";
+        document.getElementById('note-input').value = "";
+        document.getElementById('time-input').value = "";
+        
+        show('nudge-screen');
+        cycleNudge();
+    }
+
+    function renderList() {
+        const list = document.getElementById('echo-list');
+        // Sort by time if time exists
+        const sorted = [...state.thoughts].sort((a, b) => (a.time > b.time ? 1 : -1));
+        
+        list.innerHTML = sorted.map(t => `
+            <div class="echo-item">
+                <div class="echo-header">
+                    <span style="font-weight:600;">${t.thought}</span>
+                    ${t.time ? `<span class="echo-time">${t.time}</span>` : ''}
+                </div>
+                ${t.note ? `<div class="echo-note">${t.note}</div>` : ''}
+                <div style="font-size:0.6rem; color:var(--primary); text-transform:uppercase; font-weight:700; margin-top:5px;">${t.anchor}</div>
+            </div>
+        `).join('');
+    }
+
+    function startVoice() {
+        const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        rec.onresult = (e) => saveThought(e.results[0][0].transcript);
+        rec.start();
+    }
+
+    if(localStorage.getItem('nudge_setup')) {
+        show('nudge-screen');
+        cycleNudge();
+    } else {
+        show('setup-screen');
+    }
+</script>
+</body>
+</html>
