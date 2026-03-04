@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#0e0d0b"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Nudge"/>
+  <title>Nudge</title>
+  <link rel="manifest" href="manifest.json"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#0e0d0b; --surface:#161410; --surface2:#1e1b17; --surface3:#252118;
+      --border:rgba(255,255,255,0.07);
+      --ink:#f0ead8; --ink-soft:#a89e8a; --ink-muted:#5a5448;
+      --ember:#d4622a; --ember-dim:rgba(212,98,42,0.15); --ember-glow:rgba(212,98,42,0.25);
+      --sage:#7aab82; --sage-dim:rgba(122,171,130,0.12);
+      --gold:#c49a3c; --gold-dim:rgba(196,154,60,0.12);
+      --r:18px; --r-sm:12px;
+    }
+    html { font-size:16px; -webkit-tap-highlight-color:transparent; }
+    body {
+      font-family:'Instrument Sans',sans-serif;
+      background:var(--bg); color:var(--ink);
+      min-height:100vh; min-height:-webkit-fill-available; overflow-x:hidden;
+    }
+    body::after {
+      content:''; position:fixed; inset:0;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events:none; z-index:9999; opacity:0.35;
+    }
+    body::before {
+      content:''; position:fixed; top:-20%; left:50%; transform:translateX(-50%);
+      width:600px; height:400px;
+      background:radial-gradient(ellipse,rgba(212,98,42,0.05) 0%,transparent 70%);
+      pointer-events:none; z-index:0;
+    }
+    .app { max-width:430px; margin:0 auto; padding:0 20px; padding-bottom:calc(110px + env(safe-area-inset-bottom,0px)); position:relative; z-index:1; }
+
+    /* screens */
+    .screen { display:none; }
+    .screen.active { display:block; animation:rise 0.45s cubic-bezier(.22,.68,0,1.2) both; }
+    @keyframes rise { from{opacity:0;transform:translateY(20px) scale(0.98)} to{opacity:1;transform:none} }
+
+    /* shared */
+    .label { font-size:.68rem; font-weight:500; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-muted); margin-bottom:12px; }
+    .btn { border:none; cursor:pointer; font-family:'Instrument Sans',sans-serif; transition:all .18s ease; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .btn:active { transform:scale(0.97); }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 13px; border-radius:100px; font-size:.73rem; font-weight:500; letter-spacing:.07em; text-transform:uppercase; }
+
+    /* setup */
+    .setup-head { padding:52px 0 32px; }
+    .setup-step { font-size:.72rem; color:var(--ink-muted); letter-spacing:.12em; text-transform:uppercase; margin-bottom:10px; }
+    .setup-title { font-family:'Playfair Display',serif; font-size:1.7rem; line-height:1.35; margin-bottom:8px; }
+    .setup-sub { font-size:.88rem; color:var(--ink-soft); font-weight:300; line-height:1.6; margin-bottom:28px; }
+    .anchor-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:32px; }
+    .anchor-chip { padding:16px 14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm); cursor:pointer; transition:all .2s; display:flex; align-items:center; gap:10px; font-size:.88rem; color:var(--ink-soft); }
+    .anchor-chip:hover { border-color:var(--ember-glow); color:var(--ink); }
+    .anchor-chip.sel { border-color:var(--ember); background:var(--ember-dim); color:var(--ink); }
+    .time-list { display:flex; flex-direction:column; gap:8px; margin-bottom:32px; }
+    .time-row { display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm); padding:13px 16px; }
+    .time-label { flex:1; font-size:.88rem; color:var(--ink-soft); }
+    .time-input { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:6px 10px; color:var(--ink); font-family:'Instrument Sans',sans-serif; font-size:.88rem; outline:none; color-scheme:dark; }
+    .btn-primary { width:100%; padding:16px; background:var(--ember); color:#fff; border-radius:var(--r); font-size:.95rem; font-weight:500; box-shadow:0 0 0 0 var(--ember-glow); }
+    .btn-primary:hover { background:#e0702f; box-shadow:0 0 32px var(--ember-glow); }
+
+    /* nudge screen */
+    .nudge-top { padding:44px 0 16px; }
+    .nudge-greeting { font-size:.78rem; color:var(--ink-muted); letter-spacing:.06em; margin-bottom:4px; }
+    .nudge-clock { font-family:'Playfair Display',serif; font-size:1.05rem; color:var(--ink-soft); margin-bottom:28px; }
+    .notif-bar { display:flex; align-items:center; gap:10px; background:var(--gold-dim); border:1px solid rgba(196,154,60,.2); border-radius:var(--r-sm); padding:11px 14px; margin-bottom:14px; font-size:.8rem; color:var(--gold); }
+    .notif-bar button { margin-left:auto; background:var(--gold); color:var(--bg); border:none; border-radius:6px; padding:5px 11px; font-family:'Instrument Sans',sans-serif; font-size:.75rem; font-weight:500; cursor:pointer; }
+
+    /* nudge card */
+    .nudge-card-wrap { position:relative; }
+    .nudge-card-wrap::before { content:''; position:absolute; inset:-1px; border-radius:26px; background:radial-gradient(ellipse at 50% 0%,var(--ember-glow) 0%,transparent 65%); z-index:-1; }
+    .nudge-card { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:30px 24px 24px; position:relative; overflow:hidden; }
+    .nudge-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--ember),transparent); }
+    .nudge-anchor-pill { background:var(--ember-dim); color:var(--ember); border:1px solid rgba(212,98,42,.2); margin-bottom:18px; }
+    .nudge-q { font-family:'Playfair Display',serif; font-size:1.38rem; line-height:1.5; color:var(--ink); margin-bottom:10px; }
+    /* sub-message — the richer library line */
+    .nudge-sub { font-size:.82rem; color:var(--ink-muted); line-height:1.6; margin-bottom:26px; font-style:italic; }
+    .nudge-btns { display:flex; flex-direction:column; gap:8px; }
+    .btn-add  { padding:14px 18px; background:var(--ember); color:#fff; border-radius:var(--r-sm); font-size:.9rem; font-weight:500; }
+    .btn-add:hover { background:#e0702f; box-shadow:0 0 24px var(--ember-glow); }
+    .btn-done { padding:14px 18px; background:var(--sage-dim); color:var(--sage); border-radius:var(--r-sm); font-size:.9rem; border:1px solid rgba(122,171,130,.15); }
+    .btn-done:hover { background:rgba(122,171,130,.2); }
+    .btn-skip { padding:12px 18px; background:transparent; color:var(--ink-muted); border-radius:var(--r-sm); font-size:.88rem; }
+    .btn-skip:hover { color:var(--ink-soft); }
+
+    /* inline form */
+    .inline-form { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); animation:rise .3s ease both; }
+    .field { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-sm); padding:13px 14px; width:100%; font-family:'Instrument Sans',sans-serif; font-size:.9rem; color:var(--ink); outline:none; transition:border-color .2s; margin-bottom:9px; }
+    .field::placeholder { color:var(--ink-muted); }
+    .field:focus { border-color:var(--ember); }
+    .field-row { display:flex; gap:8px; align-items:center; margin-bottom:9px; }
+    .voice-btn { width:44px; height:44px; border-radius:50%; background:var(--surface3); border:1px solid var(--border); color:var(--ink-soft); font-size:1.1rem; flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .2s; }
+    .voice-btn:hover { border-color:var(--ember); color:var(--ember); }
+    .voice-btn.rec { background:var(--ember-dim); border-color:var(--ember); color:var(--ember); animation:pulse-ring 1.2s ease-in-out infinite; }
+    @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 var(--ember-glow)} 50%{box-shadow:0 0 0 8px transparent} }
+    .btn-save { flex:1; padding:12px; background:var(--ember); color:#fff; border-radius:var(--r-sm); font-size:.88rem; font-weight:500; }
+    .btn-save:hover { background:#e0702f; }
+    .btn-cancel-sm { padding:12px 14px; background:transparent; color:var(--ink-muted); font-size:.85rem; border-radius:var(--r-sm); }
+    .voice-preview { font-size:.8rem; color:var(--ember); min-height:18px; margin-bottom:6px; font-style:italic; }
+
+    /* dots */
+    .anchor-dots { display:flex; justify-content:center; gap:6px; margin-top:18px; }
+    .dot { width:6px; height:6px; border-radius:50%; background:var(--surface3); border:1px solid var(--border); transition:all .25s; }
+    .dot.active { background:var(--ember); border-color:var(--ember); width:18px; border-radius:3px; }
+
+    /* test notif button */
+    .test-notif-btn { width:100%; margin-top:14px; padding:11px; background:transparent; border:1px solid var(--border); border-radius:var(--r-sm); color:var(--ink-muted); font-family:'Instrument Sans',sans-serif; font-size:.8rem; cursor:pointer; transition:all .2s; }
+    .test-notif-btn:hover { border-color:var(--ember-glow); color:var(--ember); }
+
+    /* today */
+    .today-head { padding:48px 0 22px; display:flex; justify-content:space-between; align-items:flex-end; }
+    .today-title { font-family:'Playfair Display',serif; font-size:2rem; }
+    .today-date-sm { font-size:.78rem; color:var(--ink-muted); }
+    .stats-row { display:flex; gap:8px; margin-bottom:26px; }
+    .stat { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm); padding:14px 10px; text-align:center; }
+    .stat-n { font-family:'Playfair Display',serif; font-size:1.8rem; color:var(--ink); line-height:1; }
+    .stat-l { font-size:.67rem; color:var(--ink-muted); letter-spacing:.1em; text-transform:uppercase; margin-top:4px; }
+    .anchor-group { margin-bottom:26px; }
+    .anchor-group-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .anchor-group-name { font-size:.68rem; font-weight:500; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-muted); }
+    .group-divider { flex:1; height:1px; background:var(--border); }
+    .r-item { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-sm); padding:13px 14px; display:flex; align-items:center; gap:12px; margin-bottom:7px; cursor:pointer; transition:all .22s; position:relative; overflow:hidden; }
+    .r-item::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--ember); opacity:0; transition:opacity .2s; }
+    .r-item:hover::before { opacity:0.5; }
+    .r-item:hover { border-color:rgba(255,255,255,.12); transform:translateX(3px); }
+    .r-item.done { opacity:.35; }
+    .r-item.done .r-text { text-decoration:line-through; }
+    .r-item.due::before { opacity:1; }
+    .r-item.due { border-color:rgba(212,98,42,.2); }
+    .r-circle { width:22px; height:22px; border-radius:50%; border:1.5px solid var(--ink-muted); flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+    .r-item.done .r-circle { background:var(--sage); border-color:var(--sage); }
+    .check-icon { display:none; color:var(--bg); font-size:.65rem; font-weight:700; }
+    .r-item.done .check-icon { display:block; }
+    .r-text { flex:1; font-size:.88rem; line-height:1.4; }
+    .r-time { font-size:.75rem; color:var(--ink-muted); font-variant-numeric:tabular-nums; }
+    .r-del { background:none; border:none; color:var(--ink-muted); cursor:pointer; font-size:.8rem; padding:2px 4px; border-radius:4px; opacity:0; transition:opacity .15s; }
+    .r-item:hover .r-del { opacity:1; }
+    .r-del:hover { color:var(--ember); }
+    .empty-group { font-size:.82rem; color:var(--ink-muted); font-style:italic; padding:4px 0; }
+
+    /* evening */
+    .evening-card { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:26px 22px; margin-top:32px; position:relative; overflow:hidden; }
+    .evening-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--gold),transparent); }
+    .evening-q { font-family:'Playfair Display',serif; font-style:italic; font-size:1.1rem; line-height:1.5; color:var(--ink-soft); margin-bottom:18px; }
+    .carry-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:.86rem; color:var(--ink-soft); cursor:pointer; transition:color .15s; }
+    .carry-item:hover { color:var(--ink); }
+    .carry-item:last-of-type { border-bottom:none; }
+    .carry-box { width:18px; height:18px; border-radius:5px; border:1.5px solid var(--ink-muted); flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .15s; }
+    .carry-item.sel .carry-box { background:var(--gold); border-color:var(--gold); }
+    .carry-cm { display:none; color:var(--bg); font-size:.6rem; font-weight:700; }
+    .carry-item.sel .carry-cm { display:block; }
+    .btn-carry { width:100%; margin-top:14px; padding:13px; background:var(--gold-dim); color:var(--gold); border:1px solid rgba(196,154,60,.2); border-radius:var(--r-sm); font-size:.88rem; }
+    .btn-carry:hover { background:rgba(196,154,60,.2); }
+
+    /* settings */
+    .settings-head { padding:48px 0 26px; }
+    .settings-title { font-family:'Playfair Display',serif; font-size:1.7rem; }
+    .settings-sub { font-size:.82rem; color:var(--ink-muted); margin-top:4px; }
+    .settings-section { margin-bottom:26px; }
+    .btn-danger { width:100%; padding:14px; background:transparent; border:1px solid rgba(212,98,42,.25); color:var(--ember); border-radius:var(--r); font-size:.88rem; }
+    .btn-danger:hover { background:var(--ember-dim); }
+
+    /* nav */
+    .nav { position:fixed; bottom:0; left:0; right:0; background:rgba(14,13,11,.92); backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px); border-top:1px solid var(--border); padding:10px 24px calc(10px + env(safe-area-inset-bottom,0px)); display:flex; justify-content:center; gap:4px; z-index:100; }
+    .nav-btn { flex:1; max-width:140px; padding:10px 8px; background:transparent; border:none; color:var(--ink-muted); font-family:'Instrument Sans',sans-serif; font-size:.72rem; cursor:pointer; border-radius:var(--r-sm); transition:all .18s; display:flex; flex-direction:column; align-items:center; gap:5px; }
+    .nav-icon { font-size:1.15rem; }
+    .nav-btn.active { color:var(--ember); background:var(--ember-dim); }
+
+    /* fab */
+    .fab { position:fixed; bottom:80px; right:20px; width:52px; height:52px; border-radius:50%; background:var(--ember); color:#fff; border:none; font-size:1.5rem; font-weight:300; cursor:pointer; box-shadow:0 4px 24px var(--ember-glow); display:flex; align-items:center; justify-content:center; z-index:99; transition:all .2s; }
+    .fab:hover { transform:scale(1.1) rotate(90deg); box-shadow:0 6px 32px var(--ember-glow); }
+
+    /* modal */
+    .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.72); backdrop-filter:blur(6px); z-index:200; align-items:flex-end; }
+    .overlay.open { display:flex; animation:fadeIn .2s ease; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .sheet { background:var(--surface); border:1px solid var(--border); border-radius:24px 24px 0 0; padding:26px 22px calc(32px + env(safe-area-inset-bottom,0px)); width:100%; max-width:430px; margin:0 auto; animation:sheetUp .32s cubic-bezier(.22,.68,0,1.1) both; }
+    @keyframes sheetUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    .sheet-title { font-family:'Playfair Display',serif; font-size:1.15rem; margin-bottom:16px; }
+    .anchor-pills { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
+    .anchor-pill-btn { padding:6px 13px; background:var(--surface2); border:1px solid var(--border); border-radius:100px; font-size:.78rem; color:var(--ink-soft); cursor:pointer; transition:all .15s; }
+    .anchor-pill-btn.sel { background:var(--ember-dim); border-color:var(--ember); color:var(--ember); }
+    .modal-row { display:flex; gap:8px; margin-top:8px; }
+    .modal-row .btn-save { padding:14px; font-size:.92rem; }
+
+    /* toast */
+    .toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:var(--surface2); border:1px solid var(--border); color:var(--ink-soft); padding:9px 18px; border-radius:100px; font-size:.82rem; z-index:500; white-space:nowrap; animation:toastIn .3s ease both; pointer-events:none; }
+    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(10px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SETUP -->
+  <div class="screen active" id="screen-setup">
+    <div class="setup-head">
+      <div class="setup-step">Step 1 of 2</div>
+      <h1 class="setup-title">How does your day divide itself?</h1>
+      <p class="setup-sub">Pick the areas that already live in your head. You won't have to enter these again.</p>
+    </div>
+    <div class="label">Your life anchors</div>
+    <div class="anchor-grid" id="setupGrid"></div>
+    <div style="height:1px;background:var(--border);margin-bottom:28px;"></div>
+    <div class="setup-step" style="margin-bottom:10px;">Step 2 of 2</div>
+    <h2 class="setup-title" style="font-size:1.35rem;margin-bottom:6px;">When should I gently check in?</h2>
+    <p class="setup-sub" style="margin-bottom:18px;">A soft question — not an alarm.</p>
+    <div class="time-list">
+      <div class="time-row"><span>🌅</span><span class="time-label">Morning</span><input class="time-input" type="time" id="t-morning" value="08:00"/></div>
+      <div class="time-row"><span>☀️</span><span class="time-label">Midday</span><input class="time-input" type="time" id="t-midday" value="13:00"/></div>
+      <div class="time-row"><span>🌙</span><span class="time-label">Evening</span><input class="time-input" type="time" id="t-evening" value="19:00"/></div>
+    </div>
+    <button class="btn btn-primary" onclick="finishSetup()">Begin gently →</button>
+  </div>
+
+  <!-- NUDGE -->
+  <div class="screen" id="screen-nudge">
+    <div class="nudge-top">
+      <div class="nudge-greeting" id="greeting"></div>
+      <div class="nudge-clock" id="clockEl"></div>
+    </div>
+    <div id="notifBar" class="notif-bar" style="display:none">
+      🔔 Allow notifications so nudges reach you even when the app is closed
+      <button onclick="askNotif()">Enable</button>
+    </div>
+    <div class="nudge-card-wrap">
+      <div class="nudge-card" id="nudgeCard">
+        <div class="pill nudge-anchor-pill" id="nudgePill">💼 Work</div>
+        <p class="nudge-q"  id="nudgeQ">Anything you planned around Work today?</p>
+        <p class="nudge-sub" id="nudgeSub">Sometimes a small task is waiting quietly for the right moment.</p>
+        <div class="nudge-btns">
+          <button class="btn btn-add"  onclick="showInline()">➕ &nbsp;Add something</button>
+          <button class="btn btn-done" onclick="nudgeDone()">✅ &nbsp;Already handled</button>
+          <button class="btn btn-skip" onclick="nudgeSkip()">⏭ &nbsp;Not today</button>
+        </div>
+        <div class="inline-form" id="inlineForm" style="display:none">
+          <div class="voice-preview" id="voicePreview"></div>
+          <div class="field-row">
+            <input class="field" style="margin:0;flex:1;" type="text" id="inlineText" placeholder="What do you need to remember?"/>
+            <button class="voice-btn btn" id="voiceBtn" onclick="toggleVoice('inline')" title="Speak">🎙</button>
+          </div>
+          <input class="field" type="time" id="inlineTime"/>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-save" style="flex:1;" onclick="saveInline()">Save</button>
+            <button class="btn btn-cancel-sm" onclick="hideInline()">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="anchor-dots" id="anchorDots"></div>
+    <button class="test-notif-btn btn" id="testNotifBtn" onclick="testNotification()" style="display:none">
+      🔔 Send a test notification
+    </button>
+  </div>
+
+  <!-- TODAY -->
+  <div class="screen" id="screen-today">
+    <div class="today-head">
+      <div class="today-title">Today</div>
+      <div class="today-date-sm" id="todayDate"></div>
+    </div>
+    <div class="stats-row" id="statsRow"></div>
+    <div id="todayList"></div>
+    <div id="eveningSlot"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="screen" id="screen-settings">
+    <div class="settings-head">
+      <div class="settings-title">Settings</div>
+      <div class="settings-sub">Anchors &amp; nudge times</div>
+    </div>
+    <div class="settings-section">
+      <div class="label">Active anchors</div>
+      <div class="anchor-grid" id="settingsGrid"></div>
+    </div>
+    <div class="settings-section">
+      <div class="label">Nudge windows</div>
+      <div class="time-list">
+        <div class="time-row"><span>🌅</span><span class="time-label">Morning</span><input class="time-input" type="time" id="s-morning" onchange="saveTimes()"/></div>
+        <div class="time-row"><span>☀️</span><span class="time-label">Midday</span><input class="time-input" type="time" id="s-midday" onchange="saveTimes()"/></div>
+        <div class="time-row"><span>🌙</span><span class="time-label">Evening</span><input class="time-input" type="time" id="s-evening" onchange="saveTimes()"/></div>
+      </div>
+    </div>
+    <button class="btn btn-danger" onclick="resetAll()">Reset everything</button>
+  </div>
+
+</div><!-- .app -->
+
+<nav class="nav" id="mainNav" style="display:none">
+  <button class="nav-btn" id="nav-nudge"    onclick="go('nudge')"><span class="nav-icon">💬</span>Nudge</button>
+  <button class="nav-btn" id="nav-today"    onclick="go('today')"><span class="nav-icon">📋</span>Today</button>
+  <button class="nav-btn" id="nav-settings" onclick="go('settings')"><span class="nav-icon">⚙️</span>Settings</button>
+</nav>
+<button class="fab" id="fab" onclick="openModal()" style="display:none">+</button>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="overlayClick(event)">
+  <div class="sheet">
+    <div class="sheet-title">Add a reminder</div>
+    <div class="label">Anchor</div>
+    <div class="anchor-pills" id="modalPills"></div>
+    <div class="voice-preview" id="modalVoicePreview"></div>
+    <div class="field-row">
+      <input class="field" style="margin-bottom:0;flex:1;" type="text" id="modalText" placeholder="What do you need to remember?"/>
+      <button class="voice-btn btn" id="modalVoiceBtn" onclick="toggleVoice('modal')" title="Speak">🎙</button>
+    </div>
+    <input class="field" style="margin-top:9px;" type="time" id="modalTime"/>
+    <div class="modal-row">
+      <button class="btn btn-save" onclick="saveModal()">Save reminder</button>
+      <button class="btn btn-cancel-sm" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── NUDGE MESSAGE LIBRARY ───────────────────────────────────────────────────
+// Each anchor has: question variants + sub-message variants + notification bodies
+const LIBRARY = {
+  work: {
+    icon: '💼',
+    label: 'Work',
+    questions: [
+      "Anything you planned around Work today?",
+      "Is there a work task quietly waiting for you?",
+      "Any work commitments you haven't crossed off yet?",
+      "Something work-related you meant to get to?",
+      "Any unfinished work business from yesterday?",
+      "A work email, call, or task sitting in the back of your mind?",
+    ],
+    subs: [
+      "Sometimes a small task is waiting quietly for the right moment.",
+      "Even one thing ticked off makes the day feel lighter.",
+      "If something's been sitting there — now's a good time to note it.",
+      "A quick note now means a clearer mind later.",
+      "Work rarely reminds you — but your mind already knows.",
+      "You've got this. What's the one thing that matters most today?",
+    ],
+    notifBodies: [
+      "Is there a work task quietly waiting for you?",
+      "A quick note now means a clearer mind later.",
+      "Any work commitments sitting in the back of your mind?",
+      "Something from work you meant to handle today?",
+    ],
+  },
+  family: {
+    icon: '🏠',
+    label: 'Family',
+    questions: [
+      "Anything you planned around Family today?",
+      "Is there someone at home you meant to check in on?",
+      "Any family matters you've been meaning to tend to?",
+      "A family commitment quietly waiting for your attention?",
+      "Someone you meant to call, visit, or message?",
+      "Any family moments or tasks you want to make sure happen?",
+    ],
+    subs: [
+      "The people who matter most often wait the most patiently.",
+      "Even a short message can mean everything.",
+      "Family doesn't always nudge back — so you have to.",
+      "Is there a small gesture that's been on your mind?",
+      "Home things have a quiet way of piling up unnoticed.",
+      "A moment of presence is sometimes the whole task.",
+    ],
+    notifBodies: [
+      "Is there someone at home you meant to check in on?",
+      "A family moment that deserves a little attention today?",
+      "Someone you've been meaning to call or message?",
+      "Family things have a way of waiting quietly.",
+    ],
+  },
+  health: {
+    icon: '🌿',
+    label: 'Health',
+    questions: [
+      "Anything health-related you planned for today?",
+      "Have you taken care of yourself the way you meant to?",
+      "Any health habits or appointments on your mind?",
+      "Something for your body or mind you haven't done yet?",
+      "A health intention you set — did it happen?",
+      "Hydrated? Moved? Rested? Anything you meant to do?",
+    ],
+    subs: [
+      "Your body keeps the score — even when life gets loud.",
+      "Small habits done consistently change everything.",
+      "Rest, movement, nourishment — pick one to honour today.",
+      "Health isn't the loudest priority, but it's the foundation.",
+      "Even one mindful choice today is enough.",
+      "You can't pour from an empty cup.",
+    ],
+    notifBodies: [
+      "Have you taken care of yourself the way you meant to?",
+      "A health habit or intention you set for today — did it happen?",
+      "Your body is quietly asking for attention.",
+      "Something small for your health — now's the moment.",
+    ],
+  },
+  money: {
+    icon: '💰',
+    label: 'Money',
+    questions: [
+      "Any money matters you meant to deal with today?",
+      "A financial task sitting in the back of your mind?",
+      "Anything money-related you haven't tended to?",
+      "A bill, transfer, or budget check you meant to do?",
+      "Is there a financial thing quietly waiting for your attention?",
+      "Any money decisions or tasks you've been putting off?",
+    ],
+    subs: [
+      "Money tasks ignored today often cost more tomorrow.",
+      "Even a two-minute check can bring real peace of mind.",
+      "Clarity about money is clarity about choices.",
+      "A small action now keeps bigger worries away later.",
+      "You don't have to solve it — just acknowledge it.",
+      "Financial calm comes from small consistent awareness.",
+    ],
+    notifBodies: [
+      "A financial task quietly waiting for your attention?",
+      "A bill, transfer, or check you meant to do today?",
+      "Money matters ignored today cost more tomorrow.",
+      "Even a 2-minute check brings real peace of mind.",
+    ],
+  },
+  social: {
+    icon: '👥',
+    label: 'Social',
+    questions: [
+      "Anyone you planned to reach out to today?",
+      "A friend or connection you've been meaning to message?",
+      "Is there a social plan or promise you made recently?",
+      "Someone you thought about but haven't contacted yet?",
+      "Any social commitment sitting quietly in your head?",
+      "A relationship that could use a little of your attention today?",
+    ],
+    subs: [
+      "Relationships need small deposits more than grand gestures.",
+      "The people you think of are usually thinking of you too.",
+      "A short message can reconnect what time slowly drifts apart.",
+      "Social life doesn't schedule itself — it needs a gentle nudge.",
+      "One real connection today beats ten scrolled past.",
+      "Who was on your mind this week that you haven't reached yet?",
+    ],
+    notifBodies: [
+      "Anyone you planned to reach out to today?",
+      "A friend or connection you've been meaning to message?",
+      "Relationships need small deposits — who deserves one today?",
+      "Someone you thought about but haven't contacted yet?",
+    ],
+  },
+  personal: {
+    icon: '✨',
+    label: 'Personal',
+    questions: [
+      "Anything personal you meant to do for yourself today?",
+      "A personal goal or intention you set — how's it going?",
+      "Something just for you that keeps getting pushed to tomorrow?",
+      "Any personal commitment you made to yourself this week?",
+      "A dream, project, or habit you meant to work on?",
+      "What did you promise yourself — and did it happen?",
+    ],
+    subs: [
+      "Personal growth is the quietest but most important work.",
+      "You are also on the list. Don't forget that.",
+      "The version of you you're becoming needs daily tending.",
+      "Even five minutes on something that's yours counts.",
+      "Your goals don't disappear — they just wait, patiently.",
+      "The thing you keep postponing is often the thing you need most.",
+    ],
+    notifBodies: [
+      "A personal intention you set — did it happen today?",
+      "Something just for you that keeps getting pushed aside?",
+      "You are also on the list. Don't forget that.",
+      "Your goals are waiting patiently for just a few minutes.",
+    ],
+  },
+};
+
+// ─── RUNTIME STATE ───────────────────────────────────────────────────────────
+const ANCHORS = ['work','family','health','money','social','personal'];
+function ls(k,fb){try{return JSON.parse(localStorage.getItem(k))??fb}catch{return fb}}
+function ss(k,v){localStorage.setItem(k,JSON.stringify(v))}
+
+let S = {
+  ready:     ls('ng_setup',false),
+  anchors:   ls('ng_anchors',[]),
+  times:     ls('ng_times',{morning:'08:00',midday:'13:00',evening:'19:00'}),
+  reminders: ls('ng_reminders',[]),
+  nIdx:      ls('ng_nidx',0),
+  msgIdx:    ls('ng_midx',{}),  // per-anchor message rotation index
+  setupSel:  [],
+};
+
+let currentScreen='nudge', sw=null, voiceActive=null, recognition=null;
+let carrySelected=[], modalAnchor=S.anchors[0]||'work';
+
+// ─── PWA / SERVICE WORKER ────────────────────────────────────────────────────
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').then(reg=>{
+    sw = reg;
+    navigator.serviceWorker.addEventListener('message', onSwMessage);
+  }).catch(()=>{});
+}
+
+function onSwMessage(e){
+  if(!e.data) return;
+  if(e.data.type==='NOTIF_ACTION'){
+    const {action, anchor} = e.data;
+    // Auto-respond to notification action
+    if(action==='add'){
+      go('nudge');
+      // pre-select the anchor and open inline
+      const i = S.anchors.indexOf(anchor);
+      if(i>-1){ S.nIdx=i; ss('ng_nidx',S.nIdx); }
+      renderNudge();
+      showInline();
+    } else if(action==='done'||action==='skip'){
+      advance();
+    }
+  }
+}
+
+function scheduleSwNudges(){
+  if(!sw||!sw.active) return;
+  const nudges = [];
+  const timeNames = ['morning','midday','evening'];
+  S.anchors.forEach((aid,i)=>{
+    timeNames.forEach(tn=>{
+      const def = LIBRARY[aid];
+      const msgI = ((S.msgIdx[aid]||0) + i) % def.notifBodies.length;
+      nudges.push({
+        time:   S.times[tn],
+        anchor: aid,
+        title:  `${def.icon} Nudge — ${def.label}`,
+        body:   def.notifBodies[msgI],
+        tag:    `nudge-${aid}-${tn}`,
+      });
+    });
+  });
+  sw.active.postMessage({ type:'SCHEDULE_NUDGES', nudges });
+}
+
+function testNotification(){
+  if(!sw||!sw.active){ toast('Service worker not ready yet'); return; }
+  const aid = S.anchors[S.nIdx % S.anchors.length];
+  const def = LIBRARY[aid];
+  const idx = S.msgIdx[aid]||0;
+  sw.active.postMessage({
+    type:'FIRE_TEST',
+    title:`${def.icon} Nudge — ${def.label}`,
+    body: def.notifBodies[idx % def.notifBodies.length],
+    anchor: aid,
+  });
+  toast('Test notification sent 🔔');
+}
+
+// ─── SETUP ───────────────────────────────────────────────────────────────────
+function renderSetupGrid(){
+  const g=document.getElementById('setupGrid'); g.innerHTML='';
+  ANCHORS.forEach(id=>{
+    const def=LIBRARY[id];
+    const c=document.createElement('div');
+    c.className='anchor-chip'+(S.setupSel.includes(id)?' sel':'');
+    c.innerHTML=`<span>${def.icon}</span>${def.label}`;
+    c.onclick=()=>{ const i=S.setupSel.indexOf(id); i>-1?S.setupSel.splice(i,1):S.setupSel.push(id); c.classList.toggle('sel'); };
+    g.appendChild(c);
+  });
+}
+
+function finishSetup(){
+  if(!S.setupSel.length){ toast('Pick at least one anchor 🌿'); return; }
+  S.anchors=S.setupSel;
+  S.times={ morning:document.getElementById('t-morning').value, midday:document.getElementById('t-midday').value, evening:document.getElementById('t-evening').value };
+  S.ready=true;
+  ss('ng_setup',true); ss('ng_anchors',S.anchors); ss('ng_times',S.times);
+  showMain();
+}
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+function showMain(){
+  document.getElementById('screen-setup').classList.remove('active');
+  document.getElementById('mainNav').style.display='flex';
+  document.getElementById('fab').style.display='flex';
+  go('nudge');
+}
+
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  const nb=document.getElementById('nav-'+id); if(nb) nb.classList.add('active');
+  currentScreen=id;
+  if(id==='nudge')    renderNudge();
+  if(id==='today')    renderToday();
+  if(id==='settings') renderSettings();
+}
+
+// ─── NUDGE ────────────────────────────────────────────────────────────────────
+function pickMsg(aid, arr){
+  const i=(S.msgIdx[aid]||0) % arr.length;
+  return arr[i];
+}
+
+function bumpMsgIdx(aid){
+  S.msgIdx[aid]=((S.msgIdx[aid]||0)+1);
+  ss('ng_midx',S.msgIdx);
+}
+
+function renderNudge(){
+  updateClock();
+  const aid = S.anchors[S.nIdx % S.anchors.length];
+  const def = LIBRARY[aid];
+  document.getElementById('nudgePill').textContent = `${def.icon} ${def.label}`;
+  document.getElementById('nudgeQ').textContent    = pickMsg(aid, def.questions);
+  document.getElementById('nudgeSub').textContent  = pickMsg(aid, def.subs);
+  renderDots(S.nIdx % S.anchors.length);
+  hideInline();
+
+  // Notification prompt
+  const nb = document.getElementById('notifBar');
+  nb.style.display = ('Notification' in window && Notification.permission==='default') ? 'flex' : 'none';
+
+  // Test button visible only if granted
+  const tb = document.getElementById('testNotifBtn');
+  tb.style.display = ('Notification' in window && Notification.permission==='granted') ? 'block' : 'none';
+}
+
+function renderDots(active){
+  const el=document.getElementById('anchorDots'); el.innerHTML='';
+  S.anchors.forEach((_,i)=>{ const d=document.createElement('div'); d.className='dot'+(i===active?' active':''); el.appendChild(d); });
+}
+
+function updateClock(){
+  const now=new Date();
+  const h=now.getHours();
+  document.getElementById('greeting').textContent = h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+  document.getElementById('clockEl').textContent  = now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+
+function advance(){
+  const aid=S.anchors[S.nIdx % S.anchors.length];
+  bumpMsgIdx(aid);
+  S.nIdx=(S.nIdx+1)%S.anchors.length; ss('ng_nidx',S.nIdx);
+  const card=document.getElementById('nudgeCard');
+  card.style.cssText='opacity:0;transform:translateY(-12px) scale(0.97);transition:all .25s ease;';
+  setTimeout(()=>{ renderNudge(); card.style.cssText='opacity:1;transform:none;transition:all .35s cubic-bezier(.22,.68,0,1.2);'; },240);
+}
+
+function nudgeDone(){ advance(); }
+function nudgeSkip(){ advance(); }
+
+function showInline(){
+  document.getElementById('inlineForm').style.display='block';
+  setTimeout(()=>document.getElementById('inlineText').focus(),100);
+}
+
+function hideInline(){
+  document.getElementById('inlineForm').style.display='none';
+  document.getElementById('inlineText').value='';
+  document.getElementById('inlineTime').value='';
+  document.getElementById('voicePreview').textContent='';
+  stopVoice();
+}
+
+function saveInline(){
+  const text=document.getElementById('inlineText').value.trim();
+  if(!text) return;
+  addReminder({anchor:S.anchors[S.nIdx%S.anchors.length], text, time:document.getElementById('inlineTime').value});
+  hideInline(); advance(); toast('Remembered 🌿');
+}
+
+// ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
+function askNotif(){
+  Notification.requestPermission().then(p=>{
+    document.getElementById('notifBar').style.display='none';
+    if(p==='granted'){
+      toast('Notifications on 🔔');
+      scheduleSwNudges();
+      // re-render to show test button
+      renderNudge();
+    }
+  });
+}
+
+// In-app fallback check (when app is open)
+setInterval(()=>{
+  updateClock();
+  const now=new Date().toTimeString().slice(0,5);
+  if(Object.values(S.times).includes(now) && currentScreen!=='nudge' && !document.hidden) go('nudge');
+  // in-app notification when page visible
+  if('Notification' in window && Notification.permission==='granted'){
+    const today=todayStr();
+    S.reminders.filter(r=>r.date===today&&r.time===now&&!r.completed).forEach(r=>{
+      const def=LIBRARY[r.anchor]||{icon:'💡',label:r.anchor};
+      new Notification(`${def.icon} Nudge — ${def.label}`,{body:r.text,tag:'reminder-'+r.id,icon:'./icon-192.png',vibrate:[100,50,100]});
+    });
+  }
+},30000);
+
+// ─── TODAY ────────────────────────────────────────────────────────────────────
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function fmtTime(t){ if(!t) return ''; const[h,m]=t.split(':'); const hr=parseInt(h); return `${hr%12||12}:${m}${hr<12?'am':'pm'}`; }
+
+function renderToday(){
+  const today=todayStr();
+  const rem=S.reminders.filter(r=>r.date===today);
+  const done=rem.filter(r=>r.completed).length;
+
+  document.getElementById('todayDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('statsRow').innerHTML=`
+    <div class="stat"><div class="stat-n">${rem.length}</div><div class="stat-l">Today</div></div>
+    <div class="stat"><div class="stat-n">${done}</div><div class="stat-l">Done</div></div>
+    <div class="stat"><div class="stat-n">${rem.length-done}</div><div class="stat-l">Pending</div></div>`;
+
+  const list=document.getElementById('todayList'); list.innerHTML='';
+  const now=new Date().toTimeString().slice(0,5);
+
+  S.anchors.forEach(aid=>{
+    const def=LIBRARY[aid]||{icon:'💡',label:aid};
+    const items=rem.filter(r=>r.anchor===aid).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+    const sec=document.createElement('div'); sec.className='anchor-group';
+    sec.innerHTML=`<div class="anchor-group-head"><span style="font-size:.85rem">${def.icon}</span><span class="anchor-group-name">${def.label}</span><div class="group-divider"></div></div>`;
+    if(!items.length){ sec.innerHTML+=`<div class="empty-group">Nothing yet</div>`; }
+    else items.forEach(r=>{
+      const due=r.time&&r.time<=now&&!r.completed;
+      const d=document.createElement('div');
+      d.className='r-item'+(r.completed?' done':'')+(due?' due':'');
+      d.innerHTML=`<div class="r-circle"><span class="check-icon">✓</span></div><div class="r-text">${r.text}</div>${r.time?`<div class="r-time">${fmtTime(r.time)}</div>`:''}<button class="r-del btn" onclick="delR(${r.id},event)">✕</button>`;
+      d.onclick=e=>{ if(e.target.classList.contains('r-del')) return; toggleDone(r.id); };
+      sec.appendChild(d);
+    });
+    list.appendChild(sec);
+  });
+  renderEvening(rem);
+}
+
+function toggleDone(id){ const r=S.reminders.find(r=>r.id===id); if(r){r.completed=!r.completed; ss('ng_reminders',S.reminders); renderToday();} }
+function delR(id,e){ e.stopPropagation(); S.reminders=S.reminders.filter(r=>r.id!==id); ss('ng_reminders',S.reminders); renderToday(); }
+
+function renderEvening(rem){
+  const slot=document.getElementById('eveningSlot');
+  if(new Date().getHours()<18){slot.innerHTML='';return;}
+  const unf=rem.filter(r=>!r.completed);
+  if(!unf.length){slot.innerHTML='';return;}
+  carrySelected=[];
+  slot.innerHTML=`<div class="evening-card">
+    <p class="evening-q">"Anything unfinished you want to carry into tomorrow?"</p>
+    ${unf.map(r=>`<div class="carry-item" id="cy-${r.id}" onclick="toggleCarry(${r.id},this)"><div class="carry-box"><span class="carry-cm">✓</span></div><span>${r.text}</span></div>`).join('')}
+    <button class="btn btn-carry" onclick="doCarry()">Carry selected to tomorrow →</button>
+  </div>`;
+}
+
+function toggleCarry(id,el){ el.classList.toggle('sel'); const i=carrySelected.indexOf(id); i>-1?carrySelected.splice(i,1):carrySelected.push(id); }
+function doCarry(){
+  const t=new Date(); t.setDate(t.getDate()+1); const ts=t.toISOString().slice(0,10);
+  carrySelected.forEach(id=>{ const r=S.reminders.find(r=>r.id===id); if(r) S.reminders.push({id:Date.now()+Math.random(),anchor:r.anchor,text:r.text,time:r.time,completed:false,date:ts,carriedOver:true}); });
+  ss('ng_reminders',S.reminders); carrySelected=[]; toast('Carried forward 🌙'); renderToday();
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
+function renderSettings(){
+  const g=document.getElementById('settingsGrid'); g.innerHTML='';
+  ANCHORS.forEach(id=>{
+    const def=LIBRARY[id];
+    const c=document.createElement('div');
+    c.className='anchor-chip'+(S.anchors.includes(id)?' sel':'');
+    c.innerHTML=`<span>${def.icon}</span>${def.label}`;
+    c.onclick=()=>{ const i=S.anchors.indexOf(id); i>-1?S.anchors.splice(i,1):S.anchors.push(id); c.classList.toggle('sel'); ss('ng_anchors',S.anchors); scheduleSwNudges(); };
+    g.appendChild(c);
+  });
+  document.getElementById('s-morning').value=S.times.morning;
+  document.getElementById('s-midday').value=S.times.midday;
+  document.getElementById('s-evening').value=S.times.evening;
+}
+
+function saveTimes(){
+  S.times={morning:document.getElementById('s-morning').value,midday:document.getElementById('s-midday').value,evening:document.getElementById('s-evening').value};
+  ss('ng_times',S.times); scheduleSwNudges(); toast('Saved');
+}
+
+function resetAll(){ if(confirm('Erase everything and start fresh?')){localStorage.clear();location.reload();} }
+
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+function openModal(){
+  modalAnchor=S.anchors[0];
+  const pills=document.getElementById('modalPills'); pills.innerHTML='';
+  S.anchors.forEach(aid=>{
+    const def=LIBRARY[aid];
+    const p=document.createElement('div');
+    p.className='anchor-pill-btn'+(aid===modalAnchor?' sel':'');
+    p.textContent=`${def.icon} ${def.label}`;
+    p.onclick=()=>{ document.querySelectorAll('.anchor-pill-btn').forEach(x=>x.classList.remove('sel')); p.classList.add('sel'); modalAnchor=aid; };
+    pills.appendChild(p);
+  });
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('modalText').focus(),350);
+}
+
+function closeModal(){
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('modalText').value='';
+  document.getElementById('modalTime').value='';
+  document.getElementById('modalVoicePreview').textContent='';
+  stopVoice();
+}
+
+function overlayClick(e){ if(e.target===document.getElementById('overlay')) closeModal(); }
+
+function saveModal(){
+  const text=document.getElementById('modalText').value.trim();
+  if(!text) return;
+  addReminder({anchor:modalAnchor, text, time:document.getElementById('modalTime').value});
+  closeModal(); if(currentScreen==='today') renderToday(); toast('Remembered 🌿');
+}
+
+// ─── CORE ─────────────────────────────────────────────────────────────────────
+function addReminder({anchor,text,time}){
+  S.reminders.push({id:Date.now(),anchor,text,time,completed:false,date:todayStr(),carriedOver:false});
+  ss('ng_reminders',S.reminders);
+}
+
+// ─── VOICE ────────────────────────────────────────────────────────────────────
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function toggleVoice(ctx){
+  if(voiceActive===ctx){stopVoice();return;}
+  if(!SR){toast('Voice not supported in this browser');return;}
+  stopVoice(); voiceActive=ctx;
+  recognition=new SR();
+  recognition.continuous=false; recognition.interimResults=true; recognition.lang='en-US';
+  const btnId=ctx==='inline'?'voiceBtn':'modalVoiceBtn';
+  const inputId=ctx==='inline'?'inlineText':'modalText';
+  const prevId=ctx==='inline'?'voicePreview':'modalVoicePreview';
+  const btn=document.getElementById(btnId);
+  btn.classList.add('rec'); btn.textContent='⏹';
+  recognition.onresult=e=>{
+    const t=Array.from(e.results).map(r=>r[0].transcript).join('');
+    document.getElementById(prevId).textContent=t;
+    if(e.results[e.results.length-1].isFinal){ document.getElementById(inputId).value=t; document.getElementById(prevId).textContent=''; }
+  };
+  recognition.onend=()=>stopVoice();
+  recognition.onerror=()=>{ stopVoice(); toast('Could not hear you — try again'); };
+  recognition.start();
+}
+
+function stopVoice(){
+  if(recognition){try{recognition.stop();}catch{} recognition=null;}
+  voiceActive=null;
+  ['voiceBtn','modalVoiceBtn'].forEach(id=>{ const b=document.getElementById(id); if(b){b.classList.remove('rec');b.textContent='🎙';} });
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg){
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  document.body.appendChild(el); setTimeout(()=>el.remove(),2400);
+}
+
+// ─── BOOT ─────────────────────────────────────────────────────────────────────
+function boot(){
+  if(S.ready&&S.anchors.length){ showMain(); scheduleSwNudges(); }
+  else { S.setupSel=[]; renderSetupGrid(); }
+}
+boot();
+</script>
+</body>
+</html>
